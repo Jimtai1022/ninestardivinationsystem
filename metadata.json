@@ -1,0 +1,6 @@
+{
+  "name": "九星问测 - Nine Star Consult",
+  "description": "马来西亚首创 · 融合 36 张九星牌卦与易经六十四卦数智决策咨询平台。输入姓名、手机与问询焦点，洞悉人生八大关键。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

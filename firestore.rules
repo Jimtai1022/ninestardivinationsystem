@@ -1,0 +1,73 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'Khimfatttai@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'editor')
+      );
+    }
+
+    function isPaidOrAdmin() {
+      return isSignedIn() && (
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['paid', 'editor'])
+      );
+    }
+
+    // User profile documents
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Consultations
+    match /consultations/{consultationId} {
+      allow get: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+
+      // Full readings (Protected for Paid customers & Editor)
+      match /fullReadings/{readingId} {
+        allow read: if isPaidOrAdmin();
+        allow write: if isAdmin();
+      }
+
+      // Follow-up inquiries
+      match /followups/{followupId} {
+        allow read: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+        allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
+      }
+    }
+
+    // 36-card cast sessions
+    match /castSessions/{sessionId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

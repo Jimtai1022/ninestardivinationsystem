@@ -1,0 +1,129 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with role-based access control (customer, paid, editor)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "User email" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "phone": { "type": "string", "description": "Malaysian mobile number (+60)" },
+        "photoURL": { "type": "string", "description": "Avatar URL" },
+        "role": {
+          "type": "string",
+          "enum": ["customer", "paid", "editor"],
+          "description": "User role: customer (free), paid (VIP full reading), editor (master)"
+        },
+        "locale": { "type": "string", "enum": ["zh", "en"], "description": "Preferred language" },
+        "createdAt": { "type": "string", "description": "ISO timestamp of creation" }
+      },
+      "required": ["uid", "role"]
+    },
+    "Consultation": {
+      "title": "Consultation",
+      "description": "A divination consultation record generated from 3-field intake",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Consultation record ID" },
+        "uid": { "type": "string", "description": "Author UID" },
+        "name": { "type": "string", "maxLength": 50, "minLength": 2, "description": "Seeker name" },
+        "phone": { "type": "string", "maxLength": 20, "description": "Malaysian phone number" },
+        "question": { "type": "string", "maxLength": 1000, "minLength": 10, "description": "User question" },
+        "status": {
+          "type": "string",
+          "enum": ["submitted", "analyzing", "awaiting_cast", "pending_review", "published", "needs_clarification"],
+          "description": "Lifecycle state"
+        },
+        "primaryPalace": { "type": "string", "description": "Primary palace mapped from 8 palaces" },
+        "secondaryPalaces": { "type": "array", "description": "Secondary related palaces" },
+        "castSessionId": { "type": "string", "description": "Linked 36-card cast session ID" },
+        "publicSummary": { "type": "string", "description": "Free public reading overview text" },
+        "annualScore": { "type": "number", "description": "Annual flow score 0-100" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Update timestamp" }
+      },
+      "required": ["uid", "name", "phone", "question", "status"]
+    },
+    "FullReading": {
+      "title": "FullReading",
+      "description": "Complete 8-palace reading report for paid customers and editor review",
+      "type": "object",
+      "properties": {
+        "consultationId": { "type": "string", "description": "Associated consultation ID" },
+        "language": { "type": "string", "enum": ["zh", "en"], "description": "Language version" },
+        "enStatus": { "type": "string", "enum": ["draft", "reviewed"], "description": "English review status" },
+        "career": { "type": "string", "description": "Career Palace interpretation" },
+        "wealth": { "type": "string", "description": "Wealth Palace interpretation" },
+        "mindStrategy": { "type": "string", "description": "Mind & Strategy Palace interpretation" },
+        "authority": { "type": "string", "description": "Authority & Status Palace interpretation" },
+        "social": { "type": "string", "description": "Social Palace interpretation" },
+        "family": { "type": "string", "description": "Family Palace interpretation" },
+        "romance": { "type": "string", "description": "Romance Palace interpretation" },
+        "legacy": { "type": "string", "description": "Legacy & Children Palace interpretation" },
+        "hexagramBen": { "type": "string", "description": "Primary hexagram analysis" },
+        "hexagramBian": { "type": "string", "description": "Transformed hexagram analysis" },
+        "masterNotes": { "type": "string", "description": "Master personal notation" },
+        "approvedBy": { "type": "string", "description": "Master UID or signature" },
+        "approvedAt": { "type": "string", "description": "Approval timestamp" }
+      },
+      "required": ["consultationId", "language"]
+    },
+    "CastSession": {
+      "title": "CastSession",
+      "description": "The 36-card spread and hexagram engine calculation data",
+      "type": "object",
+      "properties": {
+        "consultationId": { "type": "string", "description": "Linked consultation ID" },
+        "castBy": { "type": "string", "description": "Master user UID" },
+        "castAt": { "type": "string", "description": "Cast time" },
+        "lunarDate": { "type": "string", "description": "Lunar date string e.g. 乙巳年四月廿一" },
+        "cards": { "type": "array", "description": "36 cards with position, suit, rank" },
+        "benGuaName": { "type": "string", "description": "Primary Hexagram name" },
+        "bianGuaName": { "type": "string", "description": "Transformed Hexagram name" },
+        "movingLine": { "type": "number", "description": "Moving line index 1-6" },
+        "movingCard": { "type": "string", "description": "Card 36 name e.g. ♥ Q" },
+        "starName": { "type": "string", "description": "Governing star name" },
+        "engineVersion": { "type": "string", "description": "Engine computation version" }
+      },
+      "required": ["consultationId", "cards", "benGuaName", "bianGuaName"]
+    },
+    "FollowUp": {
+      "title": "FollowUp",
+      "description": "Follow-up question and master reply thread",
+      "type": "object",
+      "properties": {
+        "consultationId": { "type": "string", "description": "Linked consultation ID" },
+        "uid": { "type": "string", "description": "Customer UID" },
+        "question": { "type": "string", "maxLength": 500, "description": "Customer follow-up question" },
+        "answer": { "type": "string", "maxLength": 2000, "description": "Master answer" },
+        "status": { "type": "string", "enum": ["pending", "answered"], "description": "State" },
+        "createdAt": { "type": "string", "description": "Submitted at" },
+        "answeredAt": { "type": "string", "description": "Answered at" }
+      },
+      "required": ["consultationId", "uid", "question", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profiles partitioned by Auth UID"
+    },
+    "/consultations/{consultationId}": {
+      "schema": { "$ref": "#/entities/Consultation" },
+      "description": "Consultation cases submitted by customers or managed by masters"
+    },
+    "/consultations/{consultationId}/fullReadings/{readingId}": {
+      "schema": { "$ref": "#/entities/FullReading" },
+      "description": "Full 8-palace reading accessible by paid customers and editor/master"
+    },
+    "/castSessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/CastSession" },
+      "description": "36-card spreads and hexagram engine results"
+    },
+    "/consultations/{consultationId}/followups/{followupId}": {
+      "schema": { "$ref": "#/entities/FollowUp" },
+      "description": "Follow-up question threads"
+    }
+  }
+}
