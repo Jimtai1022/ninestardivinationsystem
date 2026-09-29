@@ -10,15 +10,17 @@ import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage';
 import { ReadingView } from './components/ReadingView';
 import { MasterConsole } from './components/MasterConsole';
+import { AdminPanel } from './components/AdminPanel';
 import { Footer } from './components/Footer';
 import { AuthModal } from './components/AuthModal';
-import { RoleSwitcher } from './components/RoleSwitcher';
+import { AdminAuthModal } from './components/AdminAuthModal';
 
 function MainApp() {
   const { user } = useAuth();
   const { setActiveConsultationId } = useConsultation();
-  const [currentView, setCurrentView] = useState<'landing' | 'reading' | 'master'>('landing');
+  const [currentView, setCurrentView] = useState<'landing' | 'reading' | 'master' | 'admin'>('landing');
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [adminAuthModalOpen, setAdminAuthModalOpen] = useState(false);
 
   const handleNavigateToReading = (consultationId?: string) => {
     if (consultationId) {
@@ -30,7 +32,7 @@ function MainApp() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f4faff] text-[#0d1e25]">
-      {/* Top Navbar */}
+      {/* Top Navbar (Customer navigation only - No admin sign up or login) */}
       <Navbar
         currentView={currentView}
         setCurrentView={(view) => {
@@ -54,25 +56,43 @@ function MainApp() {
         )}
 
         {currentView === 'master' && <MasterConsole />}
+
+        {currentView === 'admin' && (
+          <AdminPanel onBack={() => setCurrentView('landing')} />
+        )}
       </main>
 
-      {/* Footer */}
-      <Footer />
+      {/* Footer with Admin Sign Up / Login Link */}
+      <Footer
+        onOpenAdminAuth={() => setAdminAuthModalOpen(true)}
+        onNavigateToAdmin={() => {
+          setCurrentView('admin');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
 
-      {/* Authentication / Sign-up Modal */}
+      {/* Standard Customer Authentication Modal */}
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         onSuccess={() => {
-          // If master, go to master; otherwise go to reading or landing
-          if (user?.role === 'editor') {
+          if (user?.role === 'admin') {
+            setCurrentView('admin');
+          } else if (user?.role === 'editor') {
             setCurrentView('master');
           }
         }}
       />
 
-      {/* Floating Role Switcher for Testing All 3 User Journeys & Edge Cases */}
-      <RoleSwitcher currentView={currentView} setCurrentView={setCurrentView} />
+      {/* Admin Specific Authentication Modal with Single Slot RBAC */}
+      <AdminAuthModal
+        isOpen={adminAuthModalOpen}
+        onClose={() => setAdminAuthModalOpen(false)}
+        onSuccess={() => {
+          setCurrentView('admin');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
     </div>
   );
 }

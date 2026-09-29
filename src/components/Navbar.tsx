@@ -4,8 +4,8 @@ import { getTranslation } from '../lib/i18n';
 import { UserRole } from '../types';
 
 interface NavbarProps {
-  currentView: 'landing' | 'reading' | 'master';
-  setCurrentView: (view: 'landing' | 'reading' | 'master') => void;
+  currentView: 'landing' | 'reading' | 'master' | 'admin';
+  setCurrentView: (view: 'landing' | 'reading' | 'master' | 'admin') => void;
   onOpenAuthModal: () => void;
 }
 
@@ -38,7 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </button>
 
-        {/* Navigation links */}
+        {/* Navigation links (Customer public navigation only - No admin controls in header) */}
         <nav className="hidden xl:flex items-center gap-1">
           <button
             onClick={() => setCurrentView('landing')}
@@ -77,19 +77,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             {t.navPlans}
           </button>
-          {user?.role === 'editor' && (
-            <button
-              onClick={() => setCurrentView('master')}
-              className={`px-3 py-2 rounded-lg text-[14px] font-semibold transition-colors flex items-center gap-1.5 ${
-                currentView === 'master'
-                  ? 'bg-[#006673] text-white shadow-sm'
-                  : 'text-[#006673] bg-[#006673]/10 hover:bg-[#006673]/20'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
-              <span>{t.masterConsole}</span>
-            </button>
-          )}
         </nav>
 
         {/* Right side controls: Language toggle, User role/profile, Actions */}

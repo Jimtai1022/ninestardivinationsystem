@@ -1,4 +1,4 @@
-import { Consultation, CastSession, PalaceReading, FollowUpItem } from '../types';
+import { Consultation, CastSession, PalaceReading, FollowUpItem, UserProfile } from '../types';
 import { getMarcusTanDefaultCards, computeHexagrams } from './cardEngine';
 
 const marcusCards = getMarcusTanDefaultCards();
@@ -244,5 +244,74 @@ export const initialFollowUps: FollowUpItem[] = [
     status: 'answered',
     createdAt: '2025-05-18 16:30 GMT+8',
     answeredAt: '2025-05-19 09:15 GMT+8',
+  },
+];
+
+export const initialUsers: UserProfile[] = [
+  {
+    uid: 'demo-user-marcus',
+    email: 'marcus.tan@example.com',
+    displayName: '张子涵 (Marcus Tan)',
+    phone: '+60 12-882 9134',
+    photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
+    role: 'paid',
+    locale: 'zh',
+    createdAt: '2025-05-18T10:00:00Z',
+    consultationCount: 1,
+  },
+  {
+    uid: 'demo-user-michelle',
+    email: 'michelle.lee@penangtravel.my',
+    displayName: '李美玲 (Michelle Lee)',
+    phone: '+60 16-773 2189',
+    photoURL: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces',
+    role: 'paid',
+    locale: 'zh',
+    createdAt: '2025-05-20T14:15:00Z',
+    consultationCount: 1,
+  },
+  {
+    uid: 'demo-user-wilson',
+    email: 'wilson.chen@techstartup.sg',
+    displayName: '陈伟杰 (Wilson Chen)',
+    phone: '+60 11-2390 8812',
+    photoURL: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
+    role: 'customer',
+    locale: 'en',
+    createdAt: '2025-05-21T09:20:00Z',
+    consultationCount: 1,
+  },
+  {
+    uid: 'demo-user-sarah',
+    email: 'sarah.wong@familyoffice.my',
+    displayName: '拿汀黄淑芳 (Datin Sarah Wong)',
+    phone: '+60 19-338 1234',
+    photoURL: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=faces',
+    role: 'paid',
+    locale: 'zh',
+    createdAt: '2025-05-15T11:00:00Z',
+    consultationCount: 2,
+  },
+  {
+    uid: 'demo-user-kevin',
+    email: 'kevin.leow@logistics.com.my',
+    displayName: '廖家荣 (Kevin Leow)',
+    phone: '+60 17-554 9901',
+    photoURL: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=faces',
+    role: 'customer',
+    locale: 'zh',
+    createdAt: '2025-05-22T08:45:00Z',
+    consultationCount: 0,
+  },
+  {
+    uid: 'demo-user-amanda',
+    email: 'amanda.khoo@designstudio.my',
+    displayName: '邱慧敏 (Amanda Khoo)',
+    phone: '+60 12-668 4321',
+    photoURL: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&h=100&fit=crop&crop=faces',
+    role: 'customer',
+    locale: 'en',
+    createdAt: '2025-05-23T16:10:00Z',
+    consultationCount: 1,
   },
 ];

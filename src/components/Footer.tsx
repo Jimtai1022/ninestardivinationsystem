@@ -1,10 +1,38 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getTranslation } from '../lib/i18n';
+import { getAdminSlotConfig } from '../lib/adminService';
+import { AdminSlotConfig } from '../types';
 
-export const Footer: React.FC = () => {
-  const { language } = useAuth();
+interface FooterProps {
+  onOpenAdminAuth: () => void;
+  onNavigateToAdmin: () => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({
+  onOpenAdminAuth,
+  onNavigateToAdmin,
+}) => {
+  const { user, language } = useAuth();
   const t = getTranslation(language);
+  const [slotConfig, setSlotConfig] = useState<AdminSlotConfig | null>(null);
+
+  useEffect(() => {
+    getAdminSlotConfig()
+      .then((cfg) => setSlotConfig(cfg))
+      .catch(() => {});
+  }, [user]);
+
+  const handleAdminClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (user?.role === 'admin') {
+      onNavigateToAdmin();
+    } else {
+      onOpenAdminAuth();
+    }
+  };
+
+  const isClaimed = slotConfig?.isClaimed ?? false;
 
   return (
     <footer className="w-full bg-[#e7f6ff] border-t border-[#bec8cb]/20">
@@ -76,26 +104,57 @@ export const Footer: React.FC = () => {
             </a>
           </div>
 
+          {/* Admin Management Section in Footer */}
           <div className="flex flex-col gap-2.5">
-            <h3 className="text-[15px] font-bold text-[#0d1e25] mb-1">联系大师</h3>
-            <a href="#" className="text-[13px] text-[#3e484b] hover:text-[#006673] transition-colors">
-              预约一对一问测
-            </a>
-            <a href="#" className="text-[13px] text-[#3e484b] hover:text-[#006673] transition-colors">
-              大师堂资质简介
-            </a>
-            <a href="#" className="text-[13px] text-[#3e484b] hover:text-[#006673] transition-colors">
-              企业专案联络
-            </a>
-            <span className="text-[12px] text-[#6e797b] mt-1">服务时区: GMT+8 (MYT/SGT)</span>
+            <h3 className="text-[15px] font-bold text-[#0d1e25] mb-1 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[18px] text-[#006673]">admin_panel_settings</span>
+              <span>系统管理</span>
+            </h3>
+            
+            {/* Primary Admin Sign Up or Login link in footer */}
+            <button
+              onClick={handleAdminClick}
+              className="text-left text-[13px] font-semibold text-[#006673] hover:text-[#1d808f] transition-colors flex items-center gap-1.5 py-1 px-2.5 rounded-lg bg-[#dff1fb]/80 hover:bg-[#dff1fb] border border-[#bec8cb]/40 group"
+            >
+              <span className="material-symbols-outlined text-[16px] text-[#006673] group-hover:scale-110 transition-transform">
+                {user?.role === 'admin' ? 'dashboard' : isClaimed ? 'login' : 'person_add'}
+              </span>
+              <span>
+                {user?.role === 'admin'
+                  ? '进入管理后台 (Admin Panel)'
+                  : isClaimed
+                  ? '管理员登录 (Admin Login)'
+                  : '管理员注册 / 登录 (Admin Portal)'}
+              </span>
+            </button>
+
+            {/* Single Slot Status Badge in Footer */}
+            <div className="mt-1 flex items-center gap-1.5">
+              {!isClaimed ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#eff9f0] border border-[#a1dbb2] text-[10px] font-bold text-[#1b7e3f]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#1b7e3f] animate-ping"></span>
+                  唯一管理员席位待激活 (1 席)
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#fff8ed] border border-[#f5c982] text-[10px] font-bold text-[#925c0e]">
+                  <span className="material-symbols-outlined text-[12px]">lock</span>
+                  席位已锁定 · 注册已截止
+                </span>
+              )}
+            </div>
+
+            <p className="text-[11px] text-[#6e797b] leading-tight mt-1">
+              仅限唯一系统最高管理者，具备全量用户案卷查看及权限调配能力。
+            </p>
           </div>
         </div>
 
+        {/* Bottom bar with Admin portal quick anchor */}
         <div className="mt-12 pt-8 bg-[#d9ebf5]/40 rounded-xl px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left border border-[#bec8cb]/20">
           <p className="text-[12px] text-[#3e484b]">
             {t.footerCopyright}
           </p>
-          <div className="flex items-center gap-4 text-[12px] text-[#3e484b]">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-[12px] text-[#3e484b]">
             <span className="flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px] text-[#006673]">lock</span>
               全链路端到端保护
@@ -104,6 +163,15 @@ export const Footer: React.FC = () => {
               <span className="material-symbols-outlined text-[14px] text-[#006673]">public</span>
               东南亚区域服务
             </span>
+            
+            {/* Quick Admin Footer Link */}
+            <button
+              onClick={handleAdminClick}
+              className="text-[#006673] hover:underline font-bold flex items-center gap-1 cursor-pointer ml-1"
+            >
+              <span className="material-symbols-outlined text-[14px]">vpn_key</span>
+              <span>管理员专区</span>
+            </button>
           </div>
         </div>
       </div>

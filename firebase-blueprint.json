@@ -12,8 +12,8 @@
         "photoURL": { "type": "string", "description": "Avatar URL" },
         "role": {
           "type": "string",
-          "enum": ["customer", "paid", "editor"],
-          "description": "User role: customer (free), paid (VIP full reading), editor (master)"
+          "enum": ["customer", "paid", "editor", "admin"],
+          "description": "User role: customer (free), paid (VIP full reading), editor (master), admin (system administrator)"
         },
         "locale": { "type": "string", "enum": ["zh", "en"], "description": "Preferred language" },
         "createdAt": { "type": "string", "description": "ISO timestamp of creation" }
@@ -102,9 +102,28 @@
         "answeredAt": { "type": "string", "description": "Answered at" }
       },
       "required": ["consultationId", "uid", "question", "status"]
+    },
+    "AdminConfig": {
+      "title": "AdminConfig",
+      "description": "System level single admin slot configuration and lock status",
+      "type": "object",
+      "properties": {
+        "isClaimed": { "type": "boolean", "description": "Whether the single admin slot is claimed" },
+        "slotCapacity": { "type": "number", "description": "Total admin slots available, fixed at 1" },
+        "adminUid": { "type": "string", "description": "UID of the registered administrator" },
+        "adminEmail": { "type": "string", "description": "Email of the administrator" },
+        "adminName": { "type": "string", "description": "Name of the administrator" },
+        "adminPhone": { "type": "string", "description": "Phone number of administrator" },
+        "claimedAt": { "type": "string", "description": "Activation timestamp" }
+      },
+      "required": ["isClaimed", "slotCapacity"]
     }
   },
   "firestore": {
+    "/system/{docId}": {
+      "schema": { "$ref": "#/entities/AdminConfig" },
+      "description": "System level configurations including admin slot status"
+    },
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/UserProfile" },
       "description": "User profiles partitioned by Auth UID"

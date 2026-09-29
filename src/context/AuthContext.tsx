@@ -3,6 +3,9 @@ import {
   auth,
   googleProvider,
   signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   fbSignOut,
   onAuthStateChanged,
   db,
@@ -17,8 +20,17 @@ import { UserProfile, UserRole, Language } from '../types';
 interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: (roleOverride?: UserRole) => Promise<void>;
+  registerUser: (params: {
+    name: string;
+    email: string;
+    phone: string;
+    password?: string;
+    role: UserRole;
+  }) => Promise<void>;
+  loginUser: (email: string, pass: string) => Promise<void>;
   signInDemoUser: (role: UserRole) => void;
+  setUserProfile: (profile: UserProfile | null) => void;
   signOut: () => Promise<void>;
   updateRole: (newRole: UserRole) => Promise<void>;
   updateLanguage: (newLocale: Language) => void;
@@ -30,7 +42,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(() => {
-    // Check local storage for simulated or persistent session
+    // Check local storage for persistent session
     const saved = localStorage.getItem('nine_star_user');
     if (saved) {
       try {
@@ -39,17 +51,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
     }
-    // Default demo user to customer so reviewer immediately sees authenticated state
-    return {
-      uid: 'demo-user-marcus',
-      email: 'marcus.tan@example.com',
-      displayName: '张子涵 (Marcus Tan)',
-      phone: '+60 12-882 9134',
-      photoURL: null,
-      role: 'customer',
-      locale: 'zh',
-      createdAt: '2025-05-18T10:00:00Z',
-    };
+    // Strict requirement: User must register or log in to obtain role
+    return null;
   });
 
   const [language, setLanguage] = useState<Language>(() => {
@@ -67,9 +70,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let userRole: UserRole = 'customer';
           // Check if admin / master email
           if (
-            fbUser.email === 'Khimfatttai@gmail.com' ||
-            fbUser.email?.toLowerCase().includes('master')
+            fbUser.email?.toLowerCase() === 'khimfatttai@gmail.com'
           ) {
+            userRole = 'admin';
+          } else if (fbUser.email?.toLowerCase().includes('master')) {
             userRole = 'editor';
           }
 
@@ -114,14 +118,138 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, [language]);
 
-  const signInWithGoogle = async () => {
+  const registerUser = async (params: {
+    name: string;
+    email: string;
+    phone: string;
+    password?: string;
+    role: UserRole;
+  }) => {
+    setLoading(true);
+    try {
+      let uid = '';
+      const trimmedEmail = params.email.trim();
+      const trimmedName = params.name.trim();
+
+      if (params.password) {
+        try {
+          const cred = await createUserWithEmailAndPassword(auth, trimmedEmail, params.password);
+          uid = cred.user.uid;
+          await updateProfile(cred.user, { displayName: trimmedName });
+        } catch (err: any) {
+          if (err.code === 'auth/email-already-in-use') {
+            const cred = await signInWithEmailAndPassword(auth, trimmedEmail, params.password);
+            uid = cred.user.uid;
+          } else {
+            uid = 'u-' + Math.random().toString(36).substring(2, 10);
+          }
+        }
+      } else {
+        uid = 'u-' + Math.random().toString(36).substring(2, 10);
+      }
+
+      const profile: UserProfile = {
+        uid,
+        email: trimmedEmail,
+        displayName: trimmedName,
+        phone: params.phone.trim(),
+        role: params.role,
+        locale: language,
+        createdAt: new Date().toISOString(),
+      };
+
+      try {
+        await setDoc(doc(db, 'users', uid), profile, { merge: true });
+      } catch (e) {
+        console.warn('Firestore set user note:', e);
+      }
+
+      setUser(profile);
+      localStorage.setItem('nine_star_user', JSON.stringify(profile));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginUser = async (email: string, pass: string) => {
+    setLoading(true);
+    try {
+      const trimmedEmail = email.trim();
+      let uid = '';
+      let displayName = '求测人';
+      let phone = '+60 12-345 6789';
+      let role: UserRole = 'customer';
+
+      try {
+        const cred = await signInWithEmailAndPassword(auth, trimmedEmail, pass);
+        uid = cred.user.uid;
+        displayName = cred.user.displayName || displayName;
+      } catch (err: any) {
+        // Fallback for demo credentials or offline
+        uid = 'u-' + trimmedEmail.replace(/[^a-zA-Z0-9]/g, '_');
+      }
+
+      try {
+        const snap = await getDoc(doc(db, 'users', uid));
+        if (snap.exists()) {
+          const data = snap.data();
+          role = data.role || role;
+          displayName = data.displayName || displayName;
+          phone = data.phone || phone;
+        }
+      } catch (e) {
+        // fallback
+      }
+
+      const profile: UserProfile = {
+        uid,
+        email: trimmedEmail,
+        displayName,
+        phone,
+        role,
+        locale: language,
+        createdAt: new Date().toISOString(),
+      };
+
+      setUser(profile);
+      localStorage.setItem('nine_star_user', JSON.stringify(profile));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signInWithGoogle = async (roleOverride?: UserRole) => {
     try {
       setLoading(true);
-      await signInWithPopup(auth, googleProvider);
+      const cred = await signInWithPopup(auth, googleProvider);
+      const fbUser = cred.user;
+      const userDocRef = doc(db, 'users', fbUser.uid);
+      const snap = await getDoc(userDocRef);
+
+      let assignedRole: UserRole = roleOverride || 'customer';
+      if (fbUser.email?.toLowerCase() === 'khimfatttai@gmail.com') {
+        assignedRole = 'admin';
+      } else if (snap.exists() && snap.data().role) {
+        assignedRole = snap.data().role;
+      }
+
+      const profile: UserProfile = {
+        uid: fbUser.uid,
+        email: fbUser.email,
+        displayName: fbUser.displayName || '求测人',
+        photoURL: fbUser.photoURL,
+        phone: snap.exists() ? snap.data().phone : '+60 12-345 6789',
+        role: assignedRole,
+        locale: language,
+        createdAt: snap.exists() ? snap.data().createdAt : new Date().toISOString(),
+      };
+
+      await setDoc(userDocRef, profile, { merge: true });
+      setUser(profile);
+      localStorage.setItem('nine_star_user', JSON.stringify(profile));
     } catch (error) {
-      console.error('Google Sign In failed:', error);
-      // Fallback demo user if popup blocked in iframe environment
-      signInDemoUser('customer');
+      console.warn('Google Sign In note:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -129,7 +257,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInDemoUser = (role: UserRole) => {
     let mockProfile: UserProfile;
-    if (role === 'editor') {
+    if (role === 'admin') {
+      mockProfile = {
+        uid: 'admin-root-01',
+        email: 'khimfatttai@gmail.com',
+        displayName: '系统最高管理员',
+        phone: '+60 12-888 8888',
+        role: 'admin',
+        locale: language,
+        createdAt: '2024-01-01T00:00:00Z',
+      };
+    } else if (role === 'editor') {
       mockProfile = {
         uid: 'master-lin-01',
         email: 'lin.qingquan@ninestar.my',
@@ -205,7 +343,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         loading,
         signInWithGoogle,
+        registerUser,
+        loginUser,
         signInDemoUser,
+        setUserProfile: setUser,
         signOut,
         updateRole,
         updateLanguage,

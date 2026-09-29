@@ -1,4 +1,4 @@
-export type UserRole = 'customer' | 'paid' | 'editor';
+export type UserRole = 'customer' | 'paid' | 'editor' | 'admin';
 
 export type Language = 'zh' | 'en';
 
@@ -11,6 +11,17 @@ export interface UserProfile {
   role: UserRole;
   locale: Language;
   createdAt: string;
+  consultationCount?: number;
+}
+
+export interface AdminSlotConfig {
+  isClaimed: boolean;
+  slotCapacity: number;
+  adminUid?: string | null;
+  adminEmail?: string | null;
+  adminName?: string | null;
+  adminPhone?: string | null;
+  claimedAt?: string | null;
 }
 
 export type ConsultationStatus =
@@ -53,6 +64,7 @@ export interface PlayingCard {
 }
 
 export interface HexagramData {
+  number?: number;
   nameZh: string;
   nameEn: string;
   upperTrigramZh: string;
@@ -60,6 +72,15 @@ export interface HexagramData {
   lines: boolean[]; // true = yang (方块/红心), false = yin (黑桃/梅花). index 0 = line 1 (初爻)
   summaryZh: string;
   summaryEn: string;
+  guaCiZh?: string;
+  coreMottoZh?: string;
+  verdictZh?: string;
+  businessAdviceZh?: string;
+  employeeAdviceZh?: string;
+  affairsZh?: string;
+  loveZh?: string;
+  careerZh?: string;
+  masterAdviceZh?: string;
 }
 
 export interface CastSession {

@@ -1,4 +1,14 @@
 import { PlayingCard, HexagramData } from '../types';
+import {
+  SUIT_MEANINGS,
+  RANK_MEANINGS,
+  STAR_CATEGORIES,
+  evaluatePairMeaning,
+  EIGHT_PALACES_SPEC,
+  getDailySlotSchedule,
+  PairRuleResult,
+} from './knowledgeBase';
+import { getHexagramFullDetail, FULL_64_HEXAGRAM_NAMES } from './hexagramDictionary';
 
 export const VALID_SUITS = ['spade', 'heart', 'club', 'diamond'] as const;
 export const VALID_RANKS = ['6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'] as const;
@@ -163,23 +173,26 @@ export function lookupHexagram(lines: boolean[]): HexagramData {
   // lines[3..5] = upper trigram (四、五、上爻)
   const lowerKey = getTrigramName(lines[0], lines[1], lines[2]);
   const upperKey = getTrigramName(lines[3], lines[4], lines[5]);
-  const pairKey = `${upperKey}-${lowerKey}`;
-
-  const info = HEXAGRAM_NAMES[pairKey] || {
-    nameZh: `${TRIGRAMS[upperKey]?.nameZh.split(' ')[0] || '天'}${TRIGRAMS[lowerKey]?.nameZh.split(' ')[0] || '地'}卦`,
-    nameEn: `Hexagram ${upperKey}-${lowerKey}`,
-    summaryZh: '时空互化，阴阳交泰，审时度势行止有常',
-    summaryEn: 'Cosmic dynamics in transition; balance action with discernment.',
-  };
+  const fullDetail = getHexagramFullDetail(upperKey, lowerKey);
 
   return {
-    nameZh: info.nameZh,
-    nameEn: info.nameEn,
+    number: fullDetail.number,
+    nameZh: fullDetail.nameZh,
+    nameEn: fullDetail.nameEn,
     upperTrigramZh: TRIGRAMS[upperKey]?.nameZh || '天 (乾)',
     lowerTrigramZh: TRIGRAMS[lowerKey]?.nameZh || '地 (坤)',
     lines: [...lines],
-    summaryZh: info.summaryZh,
-    summaryEn: info.summaryEn,
+    summaryZh: fullDetail.coreMottoZh,
+    summaryEn: fullDetail.nameEn,
+    guaCiZh: fullDetail.guaCiZh,
+    coreMottoZh: fullDetail.coreMottoZh,
+    verdictZh: fullDetail.verdictZh,
+    businessAdviceZh: fullDetail.businessAdviceZh,
+    employeeAdviceZh: fullDetail.employeeAdviceZh,
+    affairsZh: fullDetail.affairsZh,
+    loveZh: fullDetail.loveZh,
+    careerZh: fullDetail.careerZh,
+    masterAdviceZh: fullDetail.masterAdviceZh,
   };
 }
 
@@ -401,3 +414,195 @@ export function getMarcusTanDefaultCards(): PlayingCard[] {
     { position: 36, suit: 'heart', rank: 'Q', label: '♥ Q', nameZh: '红心皇后 (动爻牌)', nameEn: 'Queen of Hearts', roleTitleZh: '动爻', roleTitleEn: 'Moving Line Card', meaningZh: '临门主星：【天医星】解困 · 【生气星】转机' }
   ];
 }
+
+/**
+ * 1. 流年运势吉凶分析 (Document 1 Page 2)
+ * 1号牌代表当下的年份 或 代表当下的心理状态
+ */
+export function analyzeAnnualCard(c1: PlayingCard): {
+  suitMeaning: string;
+  rankMeaning: string;
+  verdictZh: string;
+  focusZh: string;
+} {
+  const sm = SUIT_MEANINGS[c1.suit];
+  const rm = RANK_MEANINGS[c1.rank];
+
+  const suitName = sm?.nameZh || '此花色';
+  const suitText = sm
+    ? `${suitName}代表${sm.auspiciousZh.join('，')}；需慎防${sm.inauspiciousZh.join('、')}。`
+    : '';
+
+  const rankText = rm ? `${rm.rank}代表${rm.significanceZh}` : '';
+
+  const verdictZh = `1号牌呈现【${c1.nameZh}】。${suitText} ${rankText} 可讲解为：今年多发生的事情都是以【${rm?.keywords[0] || '核心要务'}与${sm?.auspiciousZh[0] || '事态'}】相关事件，当下心理状态也多是想着【${rm?.keywords.slice(0, 2).join('、') || '重点发展'}】相关事宜。`;
+
+  return {
+    suitMeaning: suitText,
+    rankMeaning: rankText,
+    verdictZh,
+    focusZh: rm?.keywords.join(' · ') || '时空运转',
+  };
+}
+
+/**
+ * 2. 季节运势吉凶分析 (Document 1 Page 3-4)
+ * 春季：1号和2号牌卦组合
+ * 夏季：1号和3号牌卦组合
+ * 秋季：1号和4号牌卦组合
+ * 冬季：1号和5号牌卦组合
+ */
+export function analyzeSeasonSpread(cards: PlayingCard[]): Array<{
+  seasonZh: string;
+  seasonEn: string;
+  cardSeasonPos: number;
+  pairCards: [PlayingCard, PlayingCard];
+  evalResult: PairRuleResult;
+  interpretationZh: string;
+}> {
+  const getCardByPos = (p: number) => cards.find((c) => c.position === p) || cards[0];
+  const c1 = getCardByPos(1);
+  const c2 = getCardByPos(2);
+  const c3 = getCardByPos(3);
+  const c4 = getCardByPos(4);
+  const c5 = getCardByPos(5);
+
+  const seasons = [
+    { seasonZh: '春季 (农历一至三月)', seasonEn: 'Spring', cardSeasonPos: 2, cSeason: c2 },
+    { seasonZh: '夏季 (农历四至六月)', seasonEn: 'Summer', cardSeasonPos: 3, cSeason: c3 },
+    { seasonZh: '秋季 (农历七至九月)', seasonEn: 'Autumn', cardSeasonPos: 4, cSeason: c4 },
+    { seasonZh: '冬季 (农历十至腊月)', seasonEn: 'Winter', cardSeasonPos: 5, cSeason: c5 },
+  ];
+
+  return seasons.map((s) => {
+    const evalRes = evaluatePairMeaning(c1, s.cSeason);
+    const star = STAR_CATEGORIES[evalRes.starType];
+    const interpretationZh = `${s.seasonZh}状态依 1 号【${c1.nameZh}】与 ${s.cardSeasonPos} 号【${s.cSeason.nameZh}】组合起测，落入${star.nameZh}${star.tier}：【${evalRes.titleZh}】。${evalRes.careerZh}，${evalRes.wealthZh}。`;
+    return {
+      seasonZh: s.seasonZh,
+      seasonEn: s.seasonEn,
+      cardSeasonPos: s.cardSeasonPos,
+      pairCards: [c1, s.cSeason],
+      evalResult: evalRes,
+      interpretationZh,
+    };
+  });
+}
+
+/**
+ * 3. 流月运势吉凶分析 (Document 1 Page 5-6)
+ * 严格按照 Page 6 的两两组合：
+ * 正月(6): 2+6 | 二月(7): 2+7 | 三月(8): 2+8
+ * 四月(9): 3+9 | 五月(10): 3+10 | 六月(11): 3+11
+ * 七月(12): 4+12 | 八月(13): 4+13 | 九月(14): 4+14
+ * 十月(15): 5+15 | 十一月(16): 5+16 | 十二月(17): 5+17
+ */
+export function analyzeMonthlySpread(cards: PlayingCard[]): Array<{
+  monthIndex: number;
+  monthNameZh: string;
+  seasonCardPos: number;
+  monthCardPos: number;
+  cSeason: PlayingCard;
+  cMonth: PlayingCard;
+  evalResult: PairRuleResult;
+  summaryZh: string;
+}> {
+  const getCardByPos = (p: number) => cards.find((c) => c.position === p) || cards[0];
+
+  const monthConfigs = [
+    { monthIndex: 1, monthNameZh: '农历正月', seasonCardPos: 2, monthCardPos: 6 },
+    { monthIndex: 2, monthNameZh: '农历二月', seasonCardPos: 2, monthCardPos: 7 },
+    { monthIndex: 3, monthNameZh: '农历三月', seasonCardPos: 2, monthCardPos: 8 },
+    { monthIndex: 4, monthNameZh: '农历四月', seasonCardPos: 3, monthCardPos: 9 },
+    { monthIndex: 5, monthNameZh: '农历五月★', seasonCardPos: 3, monthCardPos: 10 },
+    { monthIndex: 6, monthNameZh: '农历六月', seasonCardPos: 3, monthCardPos: 11 },
+    { monthIndex: 7, monthNameZh: '农历七月★', seasonCardPos: 4, monthCardPos: 12 },
+    { monthIndex: 8, monthNameZh: '农历八月▲', seasonCardPos: 4, monthCardPos: 13 },
+    { monthIndex: 9, monthNameZh: '农历九月★', seasonCardPos: 4, monthCardPos: 14 },
+    { monthIndex: 10, monthNameZh: '农历十月', seasonCardPos: 5, monthCardPos: 15 },
+    { monthIndex: 11, monthNameZh: '农历十一月', seasonCardPos: 5, monthCardPos: 16 },
+    { monthIndex: 12, monthNameZh: '农历十二月', seasonCardPos: 5, monthCardPos: 17 },
+  ];
+
+  return monthConfigs.map((m) => {
+    const cSeason = getCardByPos(m.seasonCardPos);
+    const cMonth = getCardByPos(m.monthCardPos);
+    const evalRes = evaluatePairMeaning(cSeason, cMonth);
+    const star = STAR_CATEGORIES[evalRes.starType];
+
+    const summaryZh = `${m.monthNameZh}状态由 ${m.seasonCardPos} 号【${cSeason.nameZh}】与 ${m.monthCardPos} 号【${cMonth.nameZh}】牌卦组合判定，临【${star.nameZh}】星：${evalRes.titleZh}。${evalRes.careerZh}，${evalRes.wealthZh}。`;
+
+    return {
+      monthIndex: m.monthIndex,
+      monthNameZh: m.monthNameZh,
+      seasonCardPos: m.seasonCardPos,
+      monthCardPos: m.monthCardPos,
+      cSeason,
+      cMonth,
+      evalResult: evalRes,
+      summaryZh,
+    };
+  });
+}
+
+/**
+ * 4. 八宫深度排盘分析 (Document 2 Page 1-8)
+ * 严格依据八宫对应的牌阵卡牌位置：
+ * 事业宫: 2, 7, 19
+ * 组织宫: 8, 20, 9, 21
+ * 交际宫: 3, 10, 22
+ * 家庭宫: 11, 23, 12, 24
+ * 财富宫: 4, 13, 25
+ * 官禄宫: 14, 26, 15, 27
+ * 感情宫: 5, 16, 28
+ * 儿女宫: 17, 29, 6, 18
+ */
+export function analyzePalaceSpread(cards: PlayingCard[]): Record<string, {
+  palaceId: string;
+  nameZh: string;
+  nameEn: string;
+  compassDirZh: string;
+  cardPositions: number[];
+  palaceCards: PlayingCard[];
+  scopeZh: string;
+  analysisZh: string;
+  keyStarZh: string;
+}> {
+  const getCardByPos = (p: number) => cards.find((c) => c.position === p) || cards[0];
+  const result: Record<string, any> = {};
+
+  for (const [key, spec] of Object.entries(EIGHT_PALACES_SPEC)) {
+    const palaceCards = spec.cardPositions.map((pos) => getCardByPos(pos));
+    // Pair analysis between first two cards in palace
+    const pairEval = evaluatePairMeaning(palaceCards[0], palaceCards[1]);
+    const star = STAR_CATEGORIES[pairEval.starType];
+
+    const cardsLabel = palaceCards.map((c) => `${c.position}号【${c.nameZh}】`).join('、');
+
+    let customDimension = pairEval.careerZh;
+    if (key === 'wealth') customDimension = pairEval.wealthZh;
+    if (key === 'official') customDimension = pairEval.officialZh;
+    if (key === 'relationship') customDimension = pairEval.relationshipZh;
+    if (key === 'mind') customDimension = pairEval.mindZh;
+    if (key === 'social') customDimension = pairEval.socialZh;
+    if (key === 'family') customDimension = pairEval.familyZh;
+    if (key === 'children') customDimension = pairEval.propertyZh;
+
+    const analysisZh = `【${spec.nameZh}】盘阵落位：${cardsLabel}。依时空干支会聚，主得${star.nameZh}${star.tier}：【${pairEval.titleZh}】。涵盖范畴：${spec.scopeZh}。实战断语：${customDimension}。`;
+
+    result[key] = {
+      palaceId: key,
+      nameZh: spec.nameZh,
+      nameEn: spec.nameEn,
+      compassDirZh: spec.compassDirZh,
+      cardPositions: spec.cardPositions,
+      palaceCards,
+      scopeZh: spec.scopeZh,
+      analysisZh,
+      keyStarZh: `${star.nameZh} · ${pairEval.titleZh}`,
+    };
+  }
+
+  return result;
+}
+
